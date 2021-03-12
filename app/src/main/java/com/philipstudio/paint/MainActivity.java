@@ -13,9 +13,12 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.text.TextUtils;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
@@ -34,6 +37,7 @@ import com.karumi.dexter.MultiplePermissionsReport;
 import com.karumi.dexter.PermissionToken;
 import com.karumi.dexter.listener.PermissionRequest;
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener;
+import com.philipstudio.paint.ui.ListFileActivity;
 import com.philipstudio.paint.ui.SettingActivity;
 
 import java.io.File;
@@ -57,8 +61,11 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
             btnTeal500, btnGreen500, btnLightGreen500, btnLime500, btnYellow500, btnAmber500, btnOrange500, btnBrown500;
 
     PhotoEditor photoEditor;
+    GestureDetector gestureDetector;
     String color = "#FF000000";
     float size = 2.0f;
+    int SWIPE_THRESHOLD = 100;
+    int SWIPE_VELOCITY_THRESHOLD = 100;
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
@@ -69,6 +76,15 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
         setContentView(R.layout.activity_main);
         initView();
         setUpPhotoEditor();
+
+        Intent intent = getIntent();
+        if (intent != null) {
+            String path = intent.getStringExtra("path");
+            if (!TextUtils.isEmpty(path)) {
+                File file = new File(path);
+                photoEditorView.getSource().setImageURI(Uri.fromFile(file));
+            }
+        }
 
         imgEarse.setOnClickListener(listener);
         imgBrush.setOnClickListener(listener);
@@ -106,6 +122,11 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
 
                     break;
             }
+            return true;
+        });
+
+        photoEditorView.setOnTouchListener((v, event) -> {
+            gestureDetector.onTouchEvent(event);
             return true;
         });
     }
@@ -232,14 +253,15 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
                     setUpDrawing(color, size);
                     break;
                 case R.id.open_file:
-                    Toast.makeText(MainActivity.this, "Open File", Toast.LENGTH_SHORT).show();
+                    Intent openIntent = new Intent(MainActivity.this, ListFileActivity.class);
+                    startActivity(openIntent);
                     break;
                 case R.id.save_file:
                     showDialogSaveFile();
                     break;
                 case R.id.setting:
-                    Intent intent = new Intent(this, SettingActivity.class);
-                    startActivity(intent);
+                    Intent settingIntent = new Intent(this, SettingActivity.class);
+                    startActivity(settingIntent);
                     break;
             }
             return false;
@@ -352,10 +374,32 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
 
         bottomSheetBehaviorColor = BottomSheetBehavior.from(linearLayoutColor);
         bottomSheetBehaviorColor.setState(BottomSheetBehavior.STATE_HIDDEN);
+
+        gestureDetector = new GestureDetector(this, new MyGesture());
     }
 
     @Override
     public void onColorChanged(int newColor) {
         setColor(newColor);
+    }
+
+    class MyGesture extends GestureDetector.SimpleOnGestureListener {
+
+        @Override
+        public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+            if (e2.getX() - e1.getX() > SWIPE_THRESHOLD && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                Toast.makeText(MainActivity.this, "Left to Right", Toast.LENGTH_SHORT).show();
+            }
+            if (e2.getX() - e1.getX() > SWIPE_THRESHOLD && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                Toast.makeText(MainActivity.this, "Right to Left", Toast.LENGTH_SHORT).show();
+            }
+            if (e2.getY() - e1.getY() > SWIPE_THRESHOLD && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                Toast.makeText(MainActivity.this, "Top to Bottom : " + e2.getY() + ", " + e1.getY(), Toast.LENGTH_SHORT).show();
+            }
+            if (e1.getY() - e2.getY() > SWIPE_THRESHOLD && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                Toast.makeText(MainActivity.this, "Bottom to Top: " + e2.getY() + ", " + e1.getY(), Toast.LENGTH_SHORT).show();
+            }
+            return super.onFling(e1, e2, velocityX, velocityY);
+        }
     }
 }

@@ -9,8 +9,14 @@
     <string name="r">R</string>
     <string name="g">G</string>
     <string name="b">B</string>
-    <string name="new_file">New</string>
-    <string name="open_file">Open</string>
-    <string name="save_file">Save</string>
-    <string name="setting">Setting</string>
+    <string name="new_file">Tạo mới</string>
+    <string name="open_file">Mở</string>
+    <string name="save_file">Lưu</string>
+    <string name="setting">Cài đặt</string>
+    <string name="ok">Ok</string>
+    <string name="cancel">Huỷ</string>
+    <string name="new_folder">Thư mục mới</string>
+    <string name="input_name_folder">Nhập tên thư mục</string>
+    <string name="create_folder">Tạo thư mục</string>
+    <string name="list_file">Danh sách các file</string>
 </resources>
