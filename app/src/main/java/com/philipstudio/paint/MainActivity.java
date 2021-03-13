@@ -9,6 +9,7 @@ import androidx.core.content.res.ResourcesCompat;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Dialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -18,7 +19,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.GestureDetector;
+import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
@@ -28,6 +31,8 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
+import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
@@ -39,6 +44,8 @@ import com.karumi.dexter.listener.PermissionRequest;
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener;
 import com.philipstudio.paint.ui.ListFileActivity;
 import com.philipstudio.paint.ui.SettingActivity;
+import com.philipstudio.paint.util.BrushUtil;
+import com.philipstudio.paint.view.GeometryView;
 
 import java.io.File;
 import java.io.IOException;
@@ -48,24 +55,26 @@ import ja.burhanrashid52.photoeditor.PhotoEditor;
 import ja.burhanrashid52.photoeditor.PhotoEditorView;
 import ja.burhanrashid52.photoeditor.SaveSettings;
 
-public class MainActivity extends AppCompatActivity implements ColorPickerView.OnColorChangedListener {
+public class MainActivity extends AppCompatActivity implements ColorPickerView.OnColorChangedListener, SeekBar.OnSeekBarChangeListener {
 
     PhotoEditorView photoEditorView;
     ImageView imgUndo, imgBrush, imgEarse, imgTools, imgMenu, imgLayers, imgColor,
             imgRedo, imgChecked, imgSetting, imgGeometry;
-    LinearLayout linearLayoutColor, layoutTools;
+    LinearLayout linearLayoutColor, layoutTools, layoutBrush;
     BottomSheetBehavior<LinearLayout> bottomSheetBehaviorColor;
     ColorPickerView colorPickerView;
     EditText edtHex, edtR, edtG, edtB, edtA;
     Button btnRed500, btnPink500, btnPurple500, btnDeepPurple500, btnIndigo500, btnBlue500, btnLightBlue500, btnCyan500,
             btnTeal500, btnGreen500, btnLightGreen500, btnLime500, btnYellow500, btnAmber500, btnOrange500, btnBrown500;
+    SeekBar sBBrush;
+    TextView txtBrushSize;
 
     PhotoEditor photoEditor;
     GestureDetector gestureDetector;
-    String color = "#FF000000";
-    float size = 2.0f;
     int SWIPE_THRESHOLD = 100;
     int SWIPE_VELOCITY_THRESHOLD = 100;
+    boolean isVisible = false, isFileExists = false;
+    BrushUtil brushUtil;
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
@@ -81,6 +90,7 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
         if (intent != null) {
             String path = intent.getStringExtra("path");
             if (!TextUtils.isEmpty(path)) {
+                isFileExists = true;
                 File file = new File(path);
                 photoEditorView.getSource().setImageURI(Uri.fromFile(file));
             }
@@ -110,25 +120,11 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
         btnOrange500.setOnClickListener(listener);
         btnBrown500.setOnClickListener(listener);
         imgGeometry.setOnClickListener(listener);
+        imgSetting.setOnClickListener(listener);
 
+        sBBrush.setOnSeekBarChangeListener(this);
         colorPickerView.setOnColorChangedListener(this);
 
-        layoutTools.setOnTouchListener((v, event) -> {
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_DOWN:
-                    Toast.makeText(MainActivity.this, "X: " + event.getRawX() + ", Y: " + event.getRawY(), Toast.LENGTH_SHORT).show();
-                    break;
-                case MotionEvent.ACTION_MOVE:
-
-                    break;
-            }
-            return true;
-        });
-
-        photoEditorView.setOnTouchListener((v, event) -> {
-            gestureDetector.onTouchEvent(event);
-            return true;
-        });
     }
 
     private final View.OnClickListener listener = new View.OnClickListener() {
@@ -142,7 +138,7 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
                     break;
                 case R.id.image_view_brush:
                     imgChecked.setVisibility(View.GONE);
-                    setUpDrawing(color, size);
+                    setUpDrawing();
                     break;
                 case R.id.image_view_undo:
                     photoEditor.undo();
@@ -158,7 +154,15 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
                     showPopUpMenu();
                     break;
                 case R.id.image_view_setting:
-                    Toast.makeText(MainActivity.this, "Hello World", Toast.LENGTH_SHORT).show();
+                    if (!isVisible) {
+                        isVisible = true;
+                        layoutBrush.setVisibility(View.VISIBLE);
+                        photoEditor.setBrushDrawingMode(false);
+                    } else {
+                        isVisible = false;
+                        layoutBrush.setVisibility(View.INVISIBLE);
+                        photoEditor.setBrushDrawingMode(true);
+                    }
                     break;
                 case R.id.button_md_blue500:
                     setColor(getColor(R.color.md_blue_500));
@@ -205,15 +209,29 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
                 case R.id.button_brown500:
                     setColor(getColor(R.color.md_brown_500));
                     break;
+                case R.id.image_view_geometry:
+                    showDialogGeometry();
+                    break;
             }
         }
     };
+
+    private void showDialogGeometry() {
+        Dialog dialog = new Dialog(this);
+        dialog.setContentView(R.layout.layout_dialog);
+
+        dialog.getWindow().getAttributes().gravity = Gravity.CENTER;
+        GeometryView geometryView = dialog.findViewById(R.id.geometry_view);
+        geometryView.drawCircleView();
+        dialog.show();
+    }
 
     private void setColor(int color) {
         bottomSheetBehaviorColor.setState(BottomSheetBehavior.STATE_EXPANDED);
         imgChecked.setVisibility(View.VISIBLE);
         imgChecked.setBackgroundColor(color);
         photoEditor.setBrushColor(color);
+        brushUtil.setBrushColor(Integer.toHexString(color));
         colorPickerView.setColor(color);
         edtHex.setText(Integer.toHexString(color).toUpperCase());
         int red = (color >> 16) & 0xFF;
@@ -231,14 +249,14 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
                 .setDefaultTextTypeface(mTypeFace)
                 .build();
 
-        setUpDrawing(color, size);
+        setUpDrawing();
     }
 
-    private void setUpDrawing(String color, float size) {
+    private void setUpDrawing() {
         photoEditor.clearAllViews();
         photoEditor.setBrushDrawingMode(true);
-        photoEditor.setBrushColor(Color.parseColor(color));
-        photoEditor.setBrushSize(size);
+        photoEditor.setBrushColor(Color.parseColor("#" + brushUtil.getBrushColor()));
+        photoEditor.setBrushSize(brushUtil.getBrushSize());
     }
 
     @SuppressLint("NonConstantResourceId")
@@ -250,7 +268,7 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
         popupMenu.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case R.id.new_file:
-                    setUpDrawing(color, size);
+                    setUpDrawing();
                     break;
                 case R.id.open_file:
                     Intent openIntent = new Intent(MainActivity.this, ListFileActivity.class);
@@ -305,26 +323,30 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
 
         File file = new File(directoryFile, name);
         try {
-            file.createNewFile();
-            SaveSettings saveSettings = new SaveSettings.Builder()
-                    .setClearViewsEnabled(true)
-                    .setTransparencyEnabled(true)
-                    .build();
+            if (file.exists()) {
+                file.delete();
+            } else {
+                file.createNewFile();
+                SaveSettings saveSettings = new SaveSettings.Builder()
+                        .setClearViewsEnabled(true)
+                        .setTransparencyEnabled(true)
+                        .build();
 
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                return;
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                    return;
+                }
+                photoEditor.saveAsFile(file.getAbsolutePath(), saveSettings, new PhotoEditor.OnSaveListener() {
+                    @Override
+                    public void onSuccess(@NonNull String imagePath) {
+                        Toast.makeText(MainActivity.this, imagePath, Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Exception exception) {
+
+                    }
+                });
             }
-            photoEditor.saveAsFile(file.getAbsolutePath(), saveSettings, new PhotoEditor.OnSaveListener() {
-                @Override
-                public void onSuccess(@NonNull String imagePath) {
-                    Toast.makeText(MainActivity.this, imagePath, Toast.LENGTH_SHORT).show();
-                }
-
-                @Override
-                public void onFailure(@NonNull Exception exception) {
-
-                }
-            });
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -353,6 +375,9 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
         imgMenu = findViewById(R.id.image_view_menu);
         imgSetting = findViewById(R.id.image_view_setting);
         imgGeometry = findViewById(R.id.image_view_geometry);
+        sBBrush = findViewById(R.id.seekbar_brush);
+        layoutBrush = findViewById(R.id.linear_layout_brush);
+        txtBrushSize = findViewById(R.id.text_view_brush_size);
 
         btnBlue500 = findViewById(R.id.button_md_blue500);
         btnCyan500 = findViewById(R.id.button_md_cyan500);
@@ -362,7 +387,6 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
         btnPink500 = findViewById(R.id.button_md_pink500);
         btnLightBlue500 = findViewById(R.id.button_md_light_blue500);
         btnIndigo500 = findViewById(R.id.button_md_indigo500);
-
         btnTeal500 = findViewById(R.id.button_md_teal500);
         btnGreen500 = findViewById(R.id.button_md_green500);
         btnLightGreen500 = findViewById(R.id.button_md_light_green500);
@@ -376,11 +400,32 @@ public class MainActivity extends AppCompatActivity implements ColorPickerView.O
         bottomSheetBehaviorColor.setState(BottomSheetBehavior.STATE_HIDDEN);
 
         gestureDetector = new GestureDetector(this, new MyGesture());
+        layoutBrush.setVisibility(View.INVISIBLE);
+        brushUtil = new BrushUtil(this);
     }
 
     @Override
     public void onColorChanged(int newColor) {
         setColor(newColor);
+    }
+
+    @Override
+    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+        if (fromUser) {
+            int brushSize = seekBar.getProgress();
+            txtBrushSize.setText(String.valueOf(brushSize));
+            setUpDrawing();
+            brushUtil.setBrushSize((float) brushSize);
+        }
+    }
+
+    @Override
+    public void onStartTrackingTouch(SeekBar seekBar) {
+
+    }
+
+    @Override
+    public void onStopTrackingTouch(SeekBar seekBar) {
     }
 
     class MyGesture extends GestureDetector.SimpleOnGestureListener {

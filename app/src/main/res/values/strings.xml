@@ -19,4 +19,8 @@
     <string name="input_name_folder">Nhập tên thư mục</string>
     <string name="create_folder">Tạo thư mục</string>
     <string name="list_file">Danh sách các file</string>
+    <string name="name_file">Name file</string>
+    <string name="brush_size">Kích thước cọ</string>
+    <string name="_0">0</string>
+    <string name="youtuber">Ủng hộ cho kênh mình với nha.</string>
 </resources>
